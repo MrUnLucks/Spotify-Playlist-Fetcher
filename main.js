@@ -1,23 +1,24 @@
-var express = require("express");
-var request = require("request");
-var crypto = require("crypto");
-var cors = require("cors");
-var querystring = require("querystring");
-var cookieParser = require("cookie-parser");
+const express = require("express");
+const request = require("request");
+const crypto = require("crypto");
+const cors = require("cors");
+const querystring = require("querystring");
+const cookieParser = require("cookie-parser");
 const fs = require("fs");
 require("dotenv").config();
 
-var client_id = process.env.CLIENT_ID;
-var client_secret = process.env.CLIENT_SECRET;
-var redirect_uri = process.env.REDIRECT_URI;
+const client_id = process.env.CLIENT_ID;
+const client_secret = process.env.CLIENT_SECRET;
+const redirect_uri = process.env.REDIRECT_URI;
 
 const generateRandomString = (length) => {
   return crypto.randomBytes(60).toString("hex").slice(0, length);
 };
 
-var stateKey = "spotify_auth_state";
+const stateKey = "spotify_auth_state";
+const PORT = 8888;
 
-var app = express();
+const app = express();
 
 app
   .use(express.static(__dirname + "/public"))
@@ -141,5 +142,5 @@ app.get("/refresh_token", function (req, res) {
   });
 });
 
-console.log("Listening on 8888");
-app.listen(8888);
+console.log(`Listening on ${PORT}`);
+app.listen(PORT);
