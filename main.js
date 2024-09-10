@@ -1,5 +1,4 @@
 const express = require("express");
-const request = require("request");
 const crypto = require("crypto");
 const cors = require("cors");
 const querystring = require("querystring");
@@ -52,6 +51,33 @@ const redirectError = (res, message) => {
       })
   );
 };
+async function fetchWebApi(endpoint, method, body) {
+  const res = await fetch(`https://api.spotify.com/${endpoint}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    method,
+    body: JSON.stringify(body),
+  });
+  return await res.json();
+}
+
+async function createPlaylist(tracksUri) {
+  const { id: user_id } = await fetchWebApi("v1/me", "GET");
+
+  const playlist = await fetchWebApi(`v1/users/${user_id}/playlists`, "POST", {
+    name: "Test playlist",
+    description: "Playlist created automatically",
+    public: false,
+  });
+
+  await fetchWebApi(
+    `v1/playlists/${playlist.id}/tracks?uris=${tracksUri.join(",")}`,
+    "POST"
+  );
+
+  return playlist;
+}
 
 app.get("/callback", function (req, res) {
   // your application requests refresh and access tokens
@@ -80,37 +106,34 @@ app.get("/callback", function (req, res) {
     },
     json: true,
   };
+  var access_token;
+  var refresh_token;
 
-  request.post(authOptions, function (error, response, body) {
-    if (error || response.statusCode !== 200) {
-      return redirectError(res, "invalid_token");
-    }
-
-    var access_token = body.access_token,
+  fetch(authOptions.url, {
+    method: "POST",
+    headers: authOptions.headers,
+    body: new URLSearchParams(authOptions.form),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        return redirectError(res, "invalid_token");
+      }
+      return response.json();
+    })
+    .then((body) => {
+      access_token = body.access_token;
       refresh_token = body.refresh_token;
 
-    var options = {
-      url: "https://api.spotify.com/v1/me/top/tracks?offset=10000&time_range=long_term&limit=45",
-      headers: { Authorization: "Bearer " + access_token },
-      json: true,
-    };
-
-    // use the access token to access the Spotify Web API
-    request.get(options, function (error, response, body) {
-      //   const toRet = body;
-      //   delete toRet["items"];
-      // console.log(body);
-    });
-
-    // we can also pass the token to the browser to make requests from there
-    res.redirect(
-      "/#" +
-        querystring.stringify({
-          access_token: access_token,
-          refresh_token: refresh_token,
-        })
-    );
-  });
+      // we can also pass the token to the browser to make requests from there
+      res.redirect(
+        "/#" +
+          querystring.stringify({
+            access_token: access_token,
+            refresh_token: refresh_token,
+          })
+      );
+    })
+    .catch((error) => redirectError(res, "invalid_token"));
 });
 
 app.get("/refresh_token", function (req, res) {
@@ -130,16 +153,17 @@ app.get("/refresh_token", function (req, res) {
     json: true,
   };
 
-  request.post(authOptions, function (error, response, body) {
-    if (!error && response.statusCode === 200) {
-      var access_token = body.access_token,
-        refresh_token = body.refresh_token;
+  fetch(authOptions.url, {
+    headers: authOptions.headers,
+    body: new URLSearchParams(authOptions.form),
+  })
+    .then(() => {
       res.send({
-        access_token: access_token,
-        refresh_token: refresh_token,
+        access_token: body.access_token,
+        refresh_token: body.refresh_token,
       });
-    }
-  });
+    })
+    .catch((error) => redirectError(res, "invalid_refresh"));
 });
 
 console.log(`Listening on ${PORT}`);
