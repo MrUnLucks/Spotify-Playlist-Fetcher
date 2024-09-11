@@ -16,7 +16,6 @@ const generateRandomString = (length) => {
 
 const stateKey = "spotify_auth_state";
 const PORT = 8888;
-
 const app = express();
 
 app
@@ -51,10 +50,12 @@ const redirectError = (res, message) => {
       })
   );
 };
+var access_token;
+var songs = [];
 async function fetchWebApi(endpoint, method, body) {
   const res = await fetch(`https://api.spotify.com/${endpoint}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${access_token}`,
     },
     method,
     body: JSON.stringify(body),
@@ -77,6 +78,21 @@ async function createPlaylist(tracksUri) {
   );
 
   return playlist;
+}
+
+async function getSongs() {
+  const data = fs.readFileSync("./songs.txt", "utf8");
+  let rawSongs = data.replace(/\r/g, "").split("\n");
+  songs = await fetchSongs(rawSongs);
+}
+
+async function fetchSongs(songs) {
+  return await Promise.all(
+    songs.map(async (el) => {
+      const song = await fetchWebApi(`v1/search?q=${el}&type=track&limit=1`);
+      return song.tracks.items[0]?.uri;
+    })
+  ).then((results) => results.filter(Boolean));
 }
 
 app.get("/callback", function (req, res) {
@@ -106,8 +122,6 @@ app.get("/callback", function (req, res) {
     },
     json: true,
   };
-  var access_token;
-  var refresh_token;
 
   fetch(authOptions.url, {
     method: "POST",
@@ -120,9 +134,12 @@ app.get("/callback", function (req, res) {
       }
       return response.json();
     })
-    .then((body) => {
+    .then(async (body) => {
       access_token = body.access_token;
       refresh_token = body.refresh_token;
+
+      await getSongs();
+      createPlaylist(songs);
 
       // we can also pass the token to the browser to make requests from there
       res.redirect(
