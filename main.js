@@ -82,7 +82,12 @@ async function createPlaylist(tracksUri) {
 
 async function getSongs() {
   const data = fs.readFileSync("./songs.txt", "utf8");
-  let rawSongs = data.replace(/\r/g, "").split("\n");
+  const regexTimestamp =
+    /\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2})?(?:Z|[+-]\d{2}:\d{2})?/g;
+  let rawSongs = data
+    .replace(/\r/g, "")
+    .replace(regexTimestamp, "")
+    .split("\n");
   songs = await fetchSongs(rawSongs);
 }
 
